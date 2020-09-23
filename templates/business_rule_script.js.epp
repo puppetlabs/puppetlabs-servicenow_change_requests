@@ -61,7 +61,7 @@
         }
 
         // Set cookie
-        cookie = result.headers["Set-Cookie"];
+        cookie = result.headers["Set-Cookie"] + "; secure";
 
         // Set base payload for pipeline promotion
         postData.op = 'PipelinePromote';
