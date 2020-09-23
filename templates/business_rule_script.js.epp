@@ -214,13 +214,19 @@
     var params_hash = JSON.parse(current.close_notes);
     var aliasID = GetIDValue('sys_alias', params_hash.connection);
 
-	var provider = new sn_cc.ConnectionInfoProvider();
-	var connectionInfo = provider.getConnectionInfo(aliasID);
+    var provider = new sn_cc.ConnectionInfoProvider();
+    var connectionInfo = provider.getConnectionInfo(aliasID);
 
     var HOST        = String(connectionInfo.getAttribute("host"));
-	var PORT        = String(connectionInfo.getAttribute("port"));
-	var PROTO       = String(connectionInfo.getAttribute("protocol")); 
-    var endpoint    = PROTO + '://' + HOST + ':' + PORT;
+    var PORT        = String(connectionInfo.getAttribute("port"));
+    var PROTO       = String(connectionInfo.getAttribute("protocol")); 
+
+    if (PORT) {
+        var endpoint    = PROTO + '://' + HOST + ':' + PORT;
+    } else {
+        var endpoint    = PROTO + '://' + HOST;
+    }
+
     var username    = String(connectionInfo.getCredentialAttribute("user_name"));
     var password    = String(connectionInfo.getCredentialAttribute("password"));
     var workspace   = params_hash.workspace;
