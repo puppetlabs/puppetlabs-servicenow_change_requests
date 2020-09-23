@@ -221,10 +221,11 @@
     var PORT        = String(connectionInfo.getAttribute("port"));
     var PROTO       = String(connectionInfo.getAttribute("protocol")); 
 
+    var endpoint;
     if (PORT) {
-        var endpoint    = PROTO + '://' + HOST + ':' + PORT;
+        endpoint    = PROTO + '://' + HOST + ':' + PORT;
     } else {
-        var endpoint    = PROTO + '://' + HOST;
+        endpoint    = PROTO + '://' + HOST;
     }
 
     var username    = String(connectionInfo.getCredentialAttribute("user_name"));
