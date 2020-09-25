@@ -104,7 +104,7 @@ plan servicenow_change_requests::prep_servicenow(
       script            => $rule_script,
       abort_action      => 'false',
       execute_function  => 'false',
-      filter_condition  => 'stateCHANGESTO-1^category=Puppet Code^EQ',
+      filter_condition  => 'stateCHANGESTO-1^category=Puppet Code^NQcategory=Puppet Code^state=-1^on_holdCHANGESTOfalse^EQ',
       condition         => '',
       rest_variables    => '',
       name              => 'Puppet - Promote code after approval',
