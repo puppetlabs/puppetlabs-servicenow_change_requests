@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## Release 0.2.0
+
+**Features**
+- The Business Rule in ServiceNow (for interacting with CD4PE) now automatically detects available MID Servers with a REST capability, and uses the first one available for outbound REST calls
+- Risk and Impact fields in the Change Request are automatically set in accordance to the Impact Analysis verdict
+- Now shows the name of the stage to promote toin the Change Request description, instead of the stage number
+
+**Bugfixes**
+- Now properly escapes special characters in commit descriptions, preventing an error when creating the Change Request
+
 ## Release 0.1.6
 
 **Bugfixes**
