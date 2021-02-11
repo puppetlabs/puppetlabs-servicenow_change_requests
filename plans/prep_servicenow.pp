@@ -1,3 +1,27 @@
+# @summary
+#   Prepares ServiceNow for the Change Request integration by:
+#    - Ensuring a change category 'Puppet Code' exists
+#    - Ensuring a business rule 'Puppet - Promote code after approval' exists
+#    - Ensuring Connection Alias, Connection and Credentials objects exists
+# 
+# @example
+#   bolt plan run servicenow_change_requests::prep_servicenow snow_endpoint=customer.service-now.com admin_user=admin admin_password=password cd4pe_endpoint=cd4pe.company.local
+# 
+# @param [String] snow_endpoint
+#   FQDN of your ServiceNow instance. Only specify the FQDN, do not specify https://
+# @param [String] admin_user
+#   Username of the account in ServiceNow that has permissions to create objects
+# @param [String] admin_password
+#   Password of the account in ServiceNow that has permissions to create objects
+# @param [String] cd4pe_endpoint
+#   FQDN of your CD4PE instance. Only specify the FQDN, do not specify https://
+# @param [Optional[Boolean]] cd4pe_https
+#   If your CD4PE instance is published over HTTP and not HTTPS, change this setting to false. Defaults to true
+# @param [Optional[Integer]] cd4pe_port
+#   If your CD4PE instance is published on a port other than 80(HTTP)/443(HTTPS), specify this setting.
+# @param [Optional[String]] connection_suffix
+#   If you are connecting multiple CD4PE instances to a single ServiceNow instance, specify a string here to identify this CD4PE instance
+# 
 plan servicenow_change_requests::prep_servicenow(
   String $snow_endpoint,
   String $admin_user,
