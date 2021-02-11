@@ -16,6 +16,9 @@
 
             request.setHttpMethod(method);
             request.setEndpoint(endpoint);
+			if (midservers.length > 0) {
+				request.setMIDServer(midservers[0]);
+			}
             request.setRequestHeader('Content-Type', 'application/json');
             if (cookie != '') {
                 request.setRequestHeader('Cookie', cookie);
@@ -47,7 +50,11 @@
     }
 
     function PromotePuppetCode(){
-        gs.info('Puppet Code Promotion - Logging in to ' + endpoint);
+		if (midservers.length > 0) {
+			gs.info('Puppet Code Promotion - Using MID server: ' + midservers[0]);
+		}
+
+		gs.info('Puppet Code Promotion - Logging in to ' + endpoint);
         result = webrequest(endpoint + '/login', 'POST', postData, '');
 
         if (result.statuscode == 200) {
@@ -244,6 +251,23 @@
         endpoint    = PROTO + '://' + HOST;
     }
 
+	var mid_rest = new GlideRecord('ecc_agent_capability_m2m');
+	var midservers = [];
+
+	mid_rest.addQuery("capability.capability", "REST");
+	mid_rest.query();
+
+	while(mid_rest.next()) {
+		if(mid_rest.agent.status == "Up") {
+			gs.info("Puppet Code Promotion - Found online MID Server with REST capability: " + mid_rest.agent.name);
+			midservers.push(mid_rest.agent.name);
+		}
+	}
+
+	if (midservers.length == 0) {
+		gs.info('Puppet Code Promotion - No online MID Servers with REST capability found, not using a MID Server');
+	}
+	
     var username    = String(connectionInfo.getCredentialAttribute("user_name"));
     var password    = String(connectionInfo.getCredentialAttribute("password"));
     var workspace   = params_hash.workspace;
