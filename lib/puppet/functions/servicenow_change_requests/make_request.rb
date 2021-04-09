@@ -13,6 +13,7 @@ Puppet::Functions.create_function(:'servicenow_change_requests::make_request') d
   end
 
   def make_request(endpoint, type, proxy, username, password, payload = nil)
+    puts "#{proxy}"
     uri = URI.parse(endpoint)
     max_attempts = 3
     attempts = 0
@@ -39,11 +40,11 @@ Puppet::Functions.create_function(:'servicenow_change_requests::make_request') d
         request['Accept'] = 'application/json'
 
         if proxy['enabled'] == true
-          proxy = Net::HTTP::Proxy(
+          proxy_conn = Net::HTTP::Proxy(
             proxy['host'],
-            proxy['port']
+            proxy['port'],
           )
-          response = proxy.start(uri.host, uri.port) do |http|
+          response = proxy_conn.start(uri.host, uri.port) do |http|
             http.read_timeout = 60
             http.request(request)
           end
