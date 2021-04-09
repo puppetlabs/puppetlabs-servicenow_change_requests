@@ -6,15 +6,21 @@ Puppet::Functions.create_function(:'servicenow_change_requests::make_request') d
   dispatch :make_request do
     required_param 'String', :endpoint
     required_param 'String', :type
+    required_param 'Hash', :proxy
     required_param 'String', :username
     required_param 'String', :password # 'Sensitive[String]' when Sensitive
     optional_param 'Hash', :payload
   end
 
-  def make_request(endpoint, type, username, password, payload = nil)
+  def make_request(endpoint, type, proxy, username, password, payload = nil)
     uri = URI.parse(endpoint)
 
-    connection = Net::HTTP.new(uri.host, uri.port)
+    connection = if proxy['enabled'] == true
+                   Net::HTTP.new(uri.host, uri.port, proxy['host'], proxy['port'])
+                 else
+                   Net::HTTP.new(uri.host, uri.port)
+                 end
+
     if uri.scheme == 'https'
       connection.use_ssl = true
     end
