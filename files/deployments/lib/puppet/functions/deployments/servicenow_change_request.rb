@@ -202,11 +202,11 @@ Puppet::Functions.create_function(:'deployments::servicenow_change_request') do
         request['Content-Type'] = 'application/json'
         request['Accept'] = 'application/json'
         if proxy['enabled'] == true
-          proxy = Net::HTTP::Proxy(
+          proxy_conn = Net::HTTP::Proxy(
             proxy['host'],
             proxy['port']
           )
-          response = proxy.start(uri.host, uri.port, :use_ssl => (uri.scheme == 'https')) do |http|
+          response = proxy_conn.start(uri.host, uri.port, :use_ssl => (uri.scheme == 'https')) do |http|
             http.read_timeout = 60
             http.request(request)
           end
