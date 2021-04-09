@@ -178,22 +178,8 @@ Puppet::Functions.create_function(:'deployments::servicenow_change_request') do
 
   def make_request(endpoint, type, proxy, username, password, payload = nil)
     uri = URI.parse(endpoint)
-
-    connection = if proxy['enabled'] == true
-                   Net::HTTP.new(uri.host, uri.port, proxy['host'], proxy['port'])
-                 else
-                   Net::HTTP.new(uri.host, uri.port)
-                 end
-
-    if uri.scheme == 'https'
-      connection.use_ssl = true
-    end
-
-    connection.read_timeout = 60
-
     max_attempts = 3
     attempts = 0
-
     while attempts < max_attempts
       attempts += 1
       begin
@@ -215,7 +201,21 @@ Puppet::Functions.create_function(:'deployments::servicenow_change_request') do
         request.basic_auth(username, password)
         request['Content-Type'] = 'application/json'
         request['Accept'] = 'application/json'
-        response = connection.request(request)
+        if proxy['enabled'] == true
+          proxy = Net::HTTP::Proxy(
+            proxy['host'],
+            proxy['port']
+          )
+          response = proxy.start(uri.host, uri.port) do |http|
+            http.read_timeout = 60
+            http.request(request)
+          end
+        else
+          connection = Net::HTTP.new(uri.host, uri.port)
+          connection.use_ssl = true if uri.scheme == 'https'
+          connection.read_timeout = 60
+          response = connection.request(request)
+        end
       rescue SocketError => e
         raise Puppet::Error, "Could not connect to the ServiceNow endpoint at #{uri.host}: #{e.inspect}", e.backtrace
       end
