@@ -78,7 +78,13 @@ plan servicenow_change_requests::prep_servicenow(
   unless $pc_choice.size == 1 {
     # Add 'Puppet Code' as an extra change category
     out::message("Change request category 'Puppet Code' does not exist, adding category...")
-    $max_seq = $arr_choices.reduce(0) |$memo, $value| { max($memo, Integer($value['sequence'])) }
+    $max_seq = $arr_choices.reduce(0) |$memo, $value| {
+      unless $value['sequence'].empty {
+        max($memo, Integer($value['sequence']))
+      } else {
+        max($memo, 0)
+      }
+    }
     $new_seq = $max_seq + 1
     $new_category = {
       'language' => 'en',
