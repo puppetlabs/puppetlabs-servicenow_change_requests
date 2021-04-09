@@ -43,7 +43,7 @@ Puppet::Functions.create_function(:'servicenow_change_requests::make_request') d
             proxy['host'],
             proxy['port'],
           )
-          response = proxy_conn.start(uri.host, uri.port) do |http|
+          response = proxy_conn.start(uri.host, uri.port, :use_ssl => (uri.scheme == 'https')) do |http|
             http.read_timeout = 60
             http.request(request)
           end
