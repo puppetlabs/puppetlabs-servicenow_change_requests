@@ -18,6 +18,10 @@
 #   If your CD4PE instance is published on a port other than 80(HTTP)/443(HTTPS), specify this setting
 # @param [Optional[String]] connection_suffix
 #   If you are connecting multiple CD4PE instances to a single ServiceNow instance, specify a string here to identify this CD4PE instance
+# @param [Optional[String]] proxy_host
+#   If you need to connect via a proxy server, specify its FQDN here
+# @param [Optional[Integer]] proxy_port
+#   If you need to connect via a proxy server, specify its port here
 # 
 plan servicenow_change_requests::prep_servicenow(
   String $snow_endpoint,
