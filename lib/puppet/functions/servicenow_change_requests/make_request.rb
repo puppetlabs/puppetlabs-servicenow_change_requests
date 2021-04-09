@@ -13,7 +13,6 @@ Puppet::Functions.create_function(:'servicenow_change_requests::make_request') d
   end
 
   def make_request(endpoint, type, proxy, username, password, payload = nil)
-    puts "#{proxy}"
     uri = URI.parse(endpoint)
     max_attempts = 3
     attempts = 0
