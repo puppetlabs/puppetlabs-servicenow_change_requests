@@ -159,12 +159,16 @@ plan servicenow_change_requests::prep_servicenow(
   }
   else {
     if $rule_check_result['body'][0]['script'] =~ /\\r\\n\/\/ Version: (\d.\d.\d)\\r\\n/ {
+      out::message('Existing version found')
+      out::message($1)
+      out::message($br_version)
       $update_rule = versioncmp($1, $br_version) ? {
         0 => false,
         1 => false,
         -1 => true
       }
     } else {
+      out::message('No existing version found')
       $update_rule = true
     }
     if $update_rule {
