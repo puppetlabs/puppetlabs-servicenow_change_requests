@@ -158,20 +158,18 @@ plan servicenow_change_requests::prep_servicenow(
     out::message("Business rule 'Puppet - Promote code after approval' successfully added.")
   }
   else {
-    if $rule_check_result['body'][0]['script'] =~ /\\r\\n\/\/ Version: (\d.\d.\d)\\r\\n/ {
-      out::message('Existing version found')
-      out::message($1)
-      out::message($br_version)
+    out::message("Business rule 'Puppet - Promote code after approval' exists, checking version...")
+    if $rule_check_result['body'][0]['script'] =~ /\/\/ BR_Version: (\d.\d.\d)/ {
       $update_rule = versioncmp($1, $br_version) ? {
         0 => false,
         1 => false,
         -1 => true
       }
     } else {
-      out::message('No existing version found')
       $update_rule = true
     }
     if $update_rule {
+      out::message("Business rule 'Puppet - Promote code after approval' is outdated and will be updated...")
       $rule_script = epp("servicenow_change_requests/${br_version}/business_rule_script.js")
       $updated_rule = { 'script' => $rule_script }
       $rule_uri = "${_snow_endpoint}/api/now/table/sys_script/${rule_check_result['body'][0]['sys_id']}"
@@ -179,7 +177,7 @@ plan servicenow_change_requests::prep_servicenow(
       unless $rule_result['code'] == 200 {
         fail("Unable to update business rule 'Puppet - Promote code after approval'! Got error ${rule_result['code']} with message ${rule_result['body']}") # lint:ignore:140chars
       }
-      out::message("Business rule 'Puppet - Promote code after approval' successfully update to version ${br_version}.")
+      out::message("Business rule 'Puppet - Promote code after approval' successfully updated to version ${br_version}.")
     } else {
       out::message("Business rule 'Puppet - Promote code after approval' already present and up to date, nothing to do.")
     }
