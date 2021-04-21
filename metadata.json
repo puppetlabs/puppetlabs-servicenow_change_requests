@@ -1,6 +1,6 @@
 {
   "name": "puppetlabs-servicenow_change_requests",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "author": "puppetlabs",
   "summary": "Automate change requests in ServiceNow from CD4PE pipelines",
   "license": "Apache-2.0",
