@@ -51,8 +51,12 @@ For example, to configure the ServiceNow instance `https://dev-365937.service-no
 * `admin_password = <password>`
 * `cd4pe_endpoint = puppet-cd4pe.mycompany.com`
 
-
 #### Optional plan parameters
+
+If you are running a CD4PE version lower than 4.5.0, you will need to set the `br_version` parameter to ensure a compatible version of the Business Rule gets installed in ServiceNow:
+* `br_version = 0.2.2`
+
+Omit this parameter when you are running CD4PE 4.5.0 or above, which will install version 0.2.3 of the Business Rule, which is compatible with CD4PE 4.5.0.
 
 The optional parameters `cd4pe_https` and `cd4pe_port` can be used to connect to a CD4PE server on a different port, or via http. For example, to configure the ServiceNow instance `https://dev-365937.service-now.com` to integrate with a CD4PE server at `http://puppet-cd4pe.mycompany.com:8080`, specify the parameters as follows:
 * `snow_endpoint = dev-365937.service-now.com`
@@ -62,7 +66,7 @@ The optional parameters `cd4pe_https` and `cd4pe_port` can be used to connect to
 * `cd4pe_https = false`
 * `cd4pe_port = 8080`
 
-Finally the optional parameter `connection_suffix` can be used to integrate multiple CD4PE installations with a single ServiceNow instance. By default, the plan will create a `Puppet_Code` Connection Alias in ServiceNow, linked to a `Puppet Code Connection` and a `Puppet Code Credential`. This is great for when you have a single CD4PE installation. If you have 1 CD4PE installation, you don't need to specify the `connection_suffix` parameter.
+The optional parameter `connection_suffix` can be used to integrate multiple CD4PE installations with a single ServiceNow instance. By default, the plan will create a `Puppet_Code` Connection Alias in ServiceNow, linked to a `Puppet Code Connection` and a `Puppet Code Credential`. This is great for when you have a single CD4PE installation. If you have 1 CD4PE installation, you don't need to specify the `connection_suffix` parameter.
 
 To handle the multiple CD4PE installations for ServiceNow to interact with, a separate set of connections & credentials needs to be created in ServiceNow for each CD4PE instance. To let the plan do so, specify an appropriate suffix for this parameter. For example, to setup the integration for a secondary CD4PE installation used for "QA", specify `connection_suffix = QA`. This will create the following in ServiceNow:
 * A `Puppet_Code_QA` Connection Alias
