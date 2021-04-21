@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## Release 0.2.3
+
+**Features**
+- Adds support for CD4PE 4.5.0
+
+Note: CD4PE 4.5.0 changes a certain API call that is used by the ServiceNow Business Rule ("Puppet - Promote code after approval") that this module installs. If you have used a previous version of this module to install the Business Rule, you are required to re-run the `servicenow_change_requests::prep_servicenow` plan that this module provides. The plan will automatically update the ServiceNow Business Rule to account for the API change.
+
+If you are running an older version of CD4PE than 4.5.0, you can still use this module, but you will need to specify an extra parameter to the `servicenow_change_requests::prep_servicenow` plan to ensure the older version of the Business Rule gets installed. To do so, set the `br_version` parameter of the plan to `0.2.2`. Once you upgrade to CD4PE 4.5.0, re-run the plan without specifying this parameter to upgrade the Business Rule.
+
+
+
 ## Release 0.2.2
 
 **Features**
