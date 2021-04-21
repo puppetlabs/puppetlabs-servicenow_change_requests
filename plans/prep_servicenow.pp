@@ -158,7 +158,7 @@ plan servicenow_change_requests::prep_servicenow(
     out::message("Business rule 'Puppet - Promote code after approval' successfully added.")
   }
   else {
-    if $rule_check_result['body']['result'][0]['script'] =~ /\\r\\n\/\/ Version: (\d.\d.\d)\\r\\n/ {
+    if $rule_check_result['body'][0]['script'] =~ /\\r\\n\/\/ Version: (\d.\d.\d)\\r\\n/ {
       $update_rule = versioncmp($1, $br_version) ? {
         0 => false,
         1 => false,
@@ -170,7 +170,7 @@ plan servicenow_change_requests::prep_servicenow(
     if $update_rule {
       $rule_script = epp("servicenow_change_requests/${br_version}/business_rule_script.js")
       $updated_rule = { 'script' => $rule_script }
-      $rule_uri = "${_snow_endpoint}/api/now/table/sys_script/${rule_check_result['body']['result'][0]['sys_id']}"
+      $rule_uri = "${_snow_endpoint}/api/now/table/sys_script/${rule_check_result['body'][0]['sys_id']}"
       $rule_result = servicenow_change_requests::make_request($rule_uri, 'patch', $proxy, $admin_user, $admin_password, $updated_rule)
       unless $rule_result['code'] == 200 {
         fail("Unable to update business rule 'Puppet - Promote code after approval'! Got error ${rule_result['code']} with message ${rule_result['body']}") # lint:ignore:140chars
