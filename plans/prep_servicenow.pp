@@ -33,6 +33,7 @@ plan servicenow_change_requests::prep_servicenow(
   Optional[String] $connection_suffix = undef,
   Optional[String] $proxy_host = undef,
   Optional[Integer] $proxy_port = undef,
+  Optional[String] $br_version = '0.2.3'
 ){
   # Parse flexible parameters
   $_snow_endpoint = $snow_endpoint[0,8] ? {
@@ -116,38 +117,38 @@ plan servicenow_change_requests::prep_servicenow(
   unless $rule_check_result['body'].size == 1 {
     # Add 'Puppet Code Promotion' business rule
     out::message("Business rule 'Puppet - Promote code after approval' does not exist, adding rule...")
-    $rule_script = epp('servicenow_change_requests/business_rule_script.js')
+    $rule_script = epp("servicenow_change_requests/${br_version}/business_rule_script.js")
     $new_rule = {
-      client_callable   => 'false',
-      template          => '',
-      access            => 'package_private',
-      action_insert     => 'false',
-      action_update     => 'true',
-      advanced          => 'true',
-      action_delete     => 'false',
-      change_fields     => 'false',
-      description       => '',
-      action_query      => 'false',
-      when              => 'async',
-      is_rest           => 'false',
-      rest_method_text  => '',
-      rest_service_text => '',
-      order             => '100',
-      rest_method       => '',
-      rest_service      => '',
-      add_message       => 'false',
-      active            => 'true',
-      collection        => 'change_request',
-      message           => '',
-      priority          => '100',
-      script            => $rule_script,
-      abort_action      => 'false',
-      execute_function  => 'false',
-      filter_condition  => 'stateCHANGESTO-1^category=Puppet Code^NQcategory=Puppet Code^state=-1^on_holdCHANGESTOfalse^EQ',
-      condition         => '',
-      rest_variables    => '',
-      name              => 'Puppet - Promote code after approval',
-      role_conditions   => '',
+      'client_callable'   => 'false',
+      'template'          => '',
+      'access'            => 'package_private',
+      'action_insert'     => 'false',
+      'action_update'     => 'true',
+      'advanced'          => 'true',
+      'action_delete'     => 'false',
+      'change_fields'     => 'false',
+      'description'       => '',
+      'action_query'      => 'false',
+      'when'              => 'async',
+      'is_rest'           => 'false',
+      'rest_method_text'  => '',
+      'rest_service_text' => '',
+      'order'             => '100',
+      'rest_method'       => '',
+      'rest_service'      => '',
+      'add_message'       => 'false',
+      'active'            => 'true',
+      'collection'        => 'change_request',
+      'message'           => '',
+      'priority'          => '100',
+      'script'            => $rule_script,
+      'abort_action'      => 'false',
+      'execute_function'  => 'false',
+      'filter_condition'  => 'stateCHANGESTO-1^category=Puppet Code^NQcategory=Puppet Code^state=-1^on_holdCHANGESTOfalse^EQ',
+      'condition'         => '',
+      'rest_variables'    => '',
+      'name'              => 'Puppet - Promote code after approval',
+      'role_conditions'   => '',
     }
     $new_rule_uri = "${_snow_endpoint}/api/now/table/sys_script"
     $new_rule_result = servicenow_change_requests::make_request($new_rule_uri, 'post', $proxy, $admin_user, $admin_password, $new_rule)
@@ -157,7 +158,27 @@ plan servicenow_change_requests::prep_servicenow(
     out::message("Business rule 'Puppet - Promote code after approval' successfully added.")
   }
   else {
-    out::message("Business rule 'Puppet - Promote code after approval' already present, nothing to do.")
+    if $rule_check_result['body']['result'][0]['script'] =~ /\\r\\n\/\/ Version: (\d.\d.\d)\\r\\n/ {
+      $update_rule = versioncmp($1, $br_version) ? {
+        0 => false,
+        1 => false,
+        -1 => true
+      }
+    } else {
+      $update_rule = true
+    }
+    if $update_rule {
+      $rule_script = epp("servicenow_change_requests/${br_version}/business_rule_script.js")
+      $updated_rule = { 'script' => $rule_script }
+      $rule_uri = "${_snow_endpoint}/api/now/table/sys_script/${rule_check_result['body']['result'][0]['sys_id']}"
+      $rule_result = servicenow_change_requests::make_request($rule_uri, 'patch', $proxy, $admin_user, $admin_password, $updated_rule)
+      unless $rule_result['code'] == 200 {
+        fail("Unable to update business rule 'Puppet - Promote code after approval'! Got error ${rule_result['code']} with message ${rule_result['body']}") # lint:ignore:140chars
+      }
+      out::message("Business rule 'Puppet - Promote code after approval' successfully update to version ${br_version}.")
+    } else {
+      out::message("Business rule 'Puppet - Promote code after approval' already present and up to date, nothing to do.")
+    }
   }
 
   # Determine naming of connection details

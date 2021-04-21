@@ -1,0 +1,334 @@
+(function executeRule(current, previous /*null when async*/) {
+// Version: 0.2.3
+    function GetIDValue(table, displayValue) {
+		var rec = new GlideRecord(table);
+		var dn = gs.getDisplayColumn(table);
+
+		if (rec.get(dn, displayValue))
+			return rec.sys_id;
+		else
+			return null;
+	}
+
+    function webrequest(endpoint,method,payload,cookie) {
+        try {
+            var request = new sn_ws.RESTMessageV2();
+
+            request.setHttpMethod(method);
+            request.setEndpoint(endpoint);
+			if (midservers.length > 0) {
+				request.setMIDServer(midservers[0]);
+			}
+            request.setRequestHeader('Content-Type', 'application/json');
+            if (cookie != '') {
+                request.setRequestHeader('Cookie', cookie);
+            }
+            if (method == 'POST' && payload != '') {
+                request.setRequestBody(JSON.stringify(payload)); 
+            }
+            
+            var response = request.execute();
+            var httpResponseStatus = response.getStatusCode();
+            var httpResponseHeaders = response.getHeaders();
+            var httpResponseBody = response.getBody();
+
+            gs.info('Puppet Code Promotion - http response status_code: ' + httpResponseStatus);
+
+            var res = {
+                statuscode: httpResponseStatus,
+                headers: httpResponseHeaders,
+                body: httpResponseBody
+            };
+
+            // Return results
+            return res;
+        }
+        catch (ex) {
+            var message = ex.getMessage();
+            gs.error(message);
+        }
+    }
+
+    function PromotePuppetCode(){
+		if (midservers.length > 0) {
+			gs.info('Puppet Code Promotion - Using MID server: ' + midservers[0]);
+		}
+
+		gs.info('Puppet Code Promotion - Logging in to ' + endpoint);
+        result = webrequest(endpoint + '/cd4pe/login', 'POST', postData, '');
+
+        if (result.statuscode == 200) {
+            gs.info('Puppet Code Promotion - Logged in successfully');
+            gs.info('Puppet Code Promotion - Login response message body: ' + result.body);
+        }
+        else {
+            gs.error('Puppet Code Promotion - Unable to login! Received statuscode ' + result.statuscode);
+            gs.error('Puppet Code Promotion - Login error message body: ' + result.body);
+            return false;
+        }
+
+        // Set cookie
+        if (result.headers["Set-Cookie"]){
+            cookie = result.headers["Set-Cookie"];
+        } else {
+            cookie = result.headers["set-cookie"];
+        }
+
+        // Set base payload for pipeline promotion
+        postData.op = 'PipelinePromote';
+        postData.content = {
+            'pipelineId': pipeline,
+            'branch': branch,
+            'sha': sha,
+            'stageNumber': stagenumber,
+            'commitMsg': 'ServiceNow: Promote ' + sha.substring(0,7) + ' ("' + message + '") of branch ' + branch + ' to stage ' + stagenumber
+        };
+
+        // Add repo name & type in payload
+        if (repotype == 'CONTROL_REPO') {
+            postData.content['controlRepoName'] = repo;
+        } else {
+            postData.content['moduleName'] = repo;
+        }
+
+        gs.info('Puppet Code Promotion - Promoting commit ' + sha.substring(0,7) + ' ("' + message + '") of branch ' + branch + ' to stage ' + stagenumber + ' in pipeline');
+        result = webrequest(endpoint + '/' + workspace + '/ajax', 'POST', postData, cookie);
+
+        if (result.statuscode == 200 && result.body != '[]') {
+            gs.info('Puppet Code Promotion - Pipeline promoted successfully!');
+            gs.info('Puppet Code Promotion - Promotion response message body: ' + result.body);
+            current.work_notes = 'Puppet code pipeline promoted successfully, checking if approvals are needed...';
+            current.update();
+        }
+        else {
+            gs.error('Puppet Code Promotion - Unable to promote pipeline! Received statuscode ' + result.statuscode);
+            current.work_notes = 'Puppet code pipeline could not be promoted! Received statuscode ' + result.statuscode;
+            current.update();
+            if (result.body == '[]') {
+                gs.error('Puppet Code Promotion - The combination of pipelineId, controlRepoName, branch, sha and stageNumber was invalid.');
+            } else {
+                gs.error('Puppet Code Promotion - Error message body: ' + result.body);
+            }
+            return false;
+        }
+
+        // Grab deploymentId from result body
+        var arrDeploymentId = [];
+        JSON.parse(result.body).forEach(function(item) {
+            if (item.type == 'DEPLOYMENT') {
+                arrDeploymentId.push(item.id.split(':')[1]);
+            }
+        });
+
+        if (arrDeploymentId.length) {
+            gs.info('Puppet Code Promotion - Promoted stage(s) contain one or more deployments, checking for approval status');
+        } else {
+            gs.info('Puppet Code Promotion - Promoted stage(s) do not contain any deployments, nothing to do');
+            current.work_notes = 'Promoted pipeline stages do not contain any deployments, nothing more to do';
+            current.update();
+            return true;
+        }
+
+        // Process each deployment in order
+        blnOk = true;
+        arrDeploymentId.forEach(function(deploy) {
+            if (blnOk) {
+                // Wait for deploy to reach a status requiring action
+                var timesPolled = 1;
+                var keepLooping = true;
+				gs.sleep(5000);
+                do {
+                    result = webrequest(endpoint + '/' + workspace + '/ajax?op=GetDeployment&id=' + deploy, 'GET', '', cookie);
+					if (result.statuscode == 200) {
+						deploymentState = JSON.parse(result.body).deploymentState;
+						gs.info('Puppet Code Promotion - Checking deployment ' + deploy + ' status (' + timesPolled++ + '): ' + deploymentState);
+						if (deploymentState == 'QUEUED' || deploymentState == 'RUNNING') {
+							gs.sleep(3000);
+							keepLooping = true;
+						}
+						else {
+							keepLooping = false;
+						}
+					}
+					else {
+						gs.error('Puppet Code Promotion - Unable to check deployment ' + deploy + '! Received statuscode ' + result.statusCode);
+						gs.error('Puppet Code Promotion - Message body: ' + result.body);
+						current.work_notes = 'Puppet Code Deployment ' + deploy + ': Unable to check deployment';
+						current.update();
+						blnOk = false;
+						keepLooping = false;
+						return;
+					}
+                } while (keepLooping && timesPolled < 4800);
+
+				gs.info('Puppet Code Promotion - Deployment ' + deploy + ' reached status: ' + deploymentState);
+
+                if (deploymentState == 'PENDING_APPROVAL') {
+                    gs.info('Puppet Code Promotion - Deployment ' + deploy + ' requires approval, proceeding...');
+                } else {
+                    gs.info('Puppet Code Promotion - Deployment ' + deploy + ' did not require approval, nothing more to do.');
+                    return;
+                }
+
+                // Set payload for pipeline promotion
+                postData.op = 'SetDeploymentApproval';
+                postData.content = {
+                    'approvalDecision': 'APPROVED',
+                    'deploymentType': repotype,
+                    'deploymentId': deploy
+                };
+
+                if (repotype == 'CONTROL_REPO') {
+                    postData.content['deploymentType'] = 'CONTROL_REPOSITORY';
+                }
+
+                result = webrequest(endpoint + '/' + workspace + '/ajax', 'POST', postData, cookie);
+
+                if (result.statuscode == 200) {
+                    gs.info('Puppet Code Promotion - Deployment ' + deploy + ' approved successfully!');
+                    gs.info('Puppet Code Promotion - Deployment ' + deploy + ' response message body: ' + result.body);
+                    current.work_notes = 'Puppet Code Deployment ' + deploy + ' approved successfully';
+                    current.update();
+                }
+                else {
+                    gs.error('Puppet Code Promotion - Unable to approve deployment ' + deploy + '! Received statuscode ' + result.statusCode);
+                    gs.error('Puppet Code Promotion - Message body: ' + result.body);
+                    current.work_notes = 'Puppet Code Deployment ' + deploy + ': Unable to approve deployment';
+                    current.update();
+                    blnOk = false;
+                    return;
+                }
+
+                // Wait for deployment to complete (or fail)
+                timesPolled = 1;
+                keepLooping = true;
+                do {
+                    result = webrequest(endpoint + '/' + workspace + '/ajax?op=GetDeployment&id=' + deploy, 'GET', '', cookie);
+                    deploymentState = JSON.parse(result.body).deploymentState;
+                    gs.info('Puppet Code Promotion - Checking deployment ' + deploy + ' status (' + timesPolled++ + '): ' + deploymentState);
+                    if (deploymentState == 'APPROVED' || deploymentState == 'RUNNING') {
+                        keepLooping = true;
+                    }
+                    else {
+                        keepLooping = false;
+                    }
+                    gs.sleep(3000);
+                } while (keepLooping && timesPolled < 4800);
+
+                gs.info('Puppet Code Promotion - Deployment ' + deploy + ' reached status: ' + deploymentState);
+
+                if (deploymentState == 'DONE') {
+                    gs.info('Puppet Code Promotion - Deployment ' + deploy + ' completed successfully');
+                    current.work_notes = 'Puppet Code Deployment ' + deploy + ' completed successfully';
+                    current.update();
+                    return;
+                } else {
+                    gs.error('Puppet Code Promotion - Deployment ' + deploy + ' ended with status: ' + deploymentState);
+                    current.work_notes = 'Puppet Code Deployment ' + deploy + ' ended with status: ' + deploymentState;
+                    current.update();
+                    blnOk = false;
+                    return;
+                }
+            }
+        });
+        return blnOk;
+    }
+
+    var params_hash = JSON.parse(current.close_notes);
+    var aliasID = GetIDValue('sys_alias', params_hash.connection);
+
+    var provider = new sn_cc.ConnectionInfoProvider();
+    var connectionInfo = provider.getConnectionInfo(aliasID);
+
+    var HOST        = String(connectionInfo.getAttribute("host"));
+    var PORT        = String(connectionInfo.getAttribute("port"));
+    var PROTO       = String(connectionInfo.getAttribute("protocol")); 
+
+    var endpoint;
+    if (PORT) {
+        endpoint    = PROTO + '://' + HOST + ':' + PORT;
+    } else {
+        endpoint    = PROTO + '://' + HOST;
+    }
+
+	var mid_rest = new GlideRecord('ecc_agent_capability_m2m');
+	var midservers = [];
+
+	mid_rest.addQuery("capability.capability", "REST");
+	mid_rest.query();
+
+	while(mid_rest.next()) {
+		if(mid_rest.agent.status == "Up") {
+			gs.info("Puppet Code Promotion - Found online MID Server with REST capability: " + mid_rest.agent.name);
+			midservers.push(mid_rest.agent.name);
+		}
+	}
+
+	if (midservers.length == 0) {
+		gs.info('Puppet Code Promotion - No online MID Servers with REST capability found, not using a MID Server');
+	}
+	
+    var username    = String(connectionInfo.getCredentialAttribute("user_name"));
+    var password    = String(connectionInfo.getCredentialAttribute("password"));
+    var workspace   = params_hash.workspace;
+    var pipeline    = params_hash.pipelineId;
+    var repo        = params_hash.repoName;
+    var repotype    = params_hash.repoType;
+    var branch      = params_hash.scm_branch;
+    var sha         = params_hash.commitSHA;
+    var message     = trim(params_hash.commitMsg);
+    var stagenumber = params_hash.promoteToStage;
+    var result;
+    var cookie;
+    var postData = {
+        op: 'PfiLogin',
+        content: {
+            email: username,
+            passwd: password
+        }
+    };
+
+    // Add work note
+    current.work_notes = 'Promoting commit ' + sha.substring(0,7) + ' ("' + message + '") of branch ' + branch + ' to stage ' + stagenumber + ' in the background...';
+    current.update();
+
+    // Query all active change tasks of change
+    var INPROGRESS = 2;
+    var CLOSED = 3;
+    var childChangeTask = new GlideRecord('change_task');
+    childChangeTask.addQuery('change_request',current.getValue('sys_id'));
+    childChangeTask.addActiveQuery();
+    childChangeTask.query();
+
+    // Loop through all changes and update
+    while (childChangeTask .next()){
+        childChangeTask.state = INPROGRESS;
+        childChangeTask.update();
+    }
+
+    // Promote Puppet code
+    var promote_success = PromotePuppetCode();
+
+    // Finish up
+    if (promote_success) {
+        current.work_notes = 'Finished promoting Puppet code. Closing Change Tasks...';
+        current.update();
+
+        childChangeTask.query();
+        // Loop through all changes and update
+        while (childChangeTask .next()){
+            childChangeTask.state = CLOSED;
+            childChangeTask.update();
+        }
+
+        current.work_notes = 'Finished closing Change Tasks, setting Close Code to Successful...';
+        current.update();
+        current.close_code = 'successful';
+        current.update();
+    }
+    else {
+        current.work_notes = 'Errors occurred while promoting Puppet code. Consult the logs for more information.';
+        current.update();
+    }
+
+})(current, previous);
