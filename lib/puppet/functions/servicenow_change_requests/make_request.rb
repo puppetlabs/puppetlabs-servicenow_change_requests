@@ -8,8 +8,8 @@ Puppet::Functions.create_function(:'servicenow_change_requests::make_request') d
     required_param 'String', :type
     required_param 'Hash', :proxy
     required_param 'String', :username
-    required_param 'String', :password # 'Sensitive[String]' when Sensitive
-    required_param 'String', :oauth_token
+    required_param 'Sensitive[String]', :password # 'Sensitive[String]' when Sensitive
+    required_param 'Sensitive[String]', :oauth_token
     optional_param 'Hash', :payload
   end
 
