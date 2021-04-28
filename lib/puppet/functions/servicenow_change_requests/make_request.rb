@@ -35,8 +35,8 @@ Puppet::Functions.create_function(:'servicenow_change_requests::make_request') d
         else
           raise Puppet::Error, "servicenow_change_request#make_request called with invalid request type #{type}"
         end
-        if oauth_token.to_s.strip.empty?
-          request.basic_auth(username, password) # password.unwrap when Sensitive
+        if oauth_token.unwrap.to_s.strip.empty?
+          request.basic_auth(username, password.unwrap) # password.unwrap when Sensitive
         else
           request['Authorization'] = "Bearer #{oauth_token}"
         end

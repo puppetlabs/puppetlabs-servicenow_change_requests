@@ -26,8 +26,8 @@
 plan servicenow_change_requests::prep_servicenow(
   String $snow_endpoint,
   String $admin_user = '',
-  String $admin_password = '',
-  String $oauth_token = '',
+  Sensitive[String] $admin_password = Sensitive(''),
+  Sensitive[String] $oauth_token = Sensitive(''),
   String $cd4pe_endpoint,
   Optional[Boolean] $cd4pe_https = true,
   Optional[Integer] $cd4pe_port = undef,
