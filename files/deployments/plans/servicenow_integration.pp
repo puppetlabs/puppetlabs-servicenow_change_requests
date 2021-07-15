@@ -10,6 +10,7 @@ plan deployments::servicenow_integration(
   Optional[Boolean] $auto_create_ci = false,
   Optional[String] $proxy_host = undef,
   Optional[Integer] $proxy_port = undef,
+  Optional[Boolean] $attach_ia_to_change = false,
 ){
   # Read relevant CD4PE environment variables
   $repo_type         = system::env('REPO_TYPE')
@@ -91,8 +92,10 @@ plan deployments::servicenow_integration(
     $impact_analysis_id = $ia_events[0]['eventNumber']
     $impact_analysis_result = cd4pe_deployments::get_impact_analysis($impact_analysis_id)
     $impact_analysis = cd4pe_deployments::evaluate_result($impact_analysis_result)
+    $ia_domain = $impact_analysis['domain']
     $ia_url = "${impact_analysis['baseTaskUrl']}/${impact_analysis['id']}"
     $ia_report = deployments::report_impact_analysis($impact_analysis)
+    $ia_response = deployments::get_ia_csv($impact_analysis['baseTaskUrl'], $ia_domain, $impact_analysis['id'])
 
     # Generate the detailed Impact Analysis report
     $ia_envs_report = $ia_report['results'].map |$ia_env_report| {
@@ -122,6 +125,13 @@ plan deployments::servicenow_integration(
   }
   $promote_stage_number = $promote_stage[0]['stageNum']
   # Trigger Change Request workflow in ServiceNow DevOps
+
+  if $attach_ia_to_change {
+    $ia_result = $ia_response
+  } else {
+    $ia_result = ''
+  }
+
   deployments::servicenow_change_request(
     $_snow_endpoint,
     $proxy,
@@ -134,5 +144,7 @@ plan deployments::servicenow_integration(
     $assignment_group,
     $connection_alias,
     $auto_create_ci,
+    $attach_ia_to_change,
+    $ia_result,
   )
 }

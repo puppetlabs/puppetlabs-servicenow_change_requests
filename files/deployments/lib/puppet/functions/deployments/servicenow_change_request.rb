@@ -2,6 +2,7 @@ require 'net/http'
 require 'uri'
 require 'cgi'
 require 'json'
+require 'pp'
 
 Puppet::Functions.create_function(:'deployments::servicenow_change_request') do
   dispatch :servicenow_change_request do
@@ -16,9 +17,11 @@ Puppet::Functions.create_function(:'deployments::servicenow_change_request') do
     required_param 'String',  :assignment_group
     required_param 'String',  :connection_alias
     required_param 'Boolean', :auto_create_ci
+    required_param 'Boolean', :attach_ia_csv
+    required_param 'String',  :ia_content
   end
 
-  def servicenow_change_request(endpoint, proxy, username, password, report, ia_url, promote_to_stage_name, promote_to_stage_id, assignment_group, connection_alias, auto_create_ci)
+  def servicenow_change_request(endpoint, proxy, username, password, report, ia_url, promote_to_stage_name, promote_to_stage_id, assignment_group, connection_alias, auto_create_ci, attach_ia_csv, ia_content)
     # Map facts to populate when auto-creating CI's
     fact_map = {
       # PuppetDB fact => ServiceNow CI field
@@ -174,6 +177,12 @@ Puppet::Functions.create_function(:'deployments::servicenow_change_request') do
 
     change_req_url_res = make_request(change_req_url, :patch, proxy, username, password, payload)
     raise Puppet::Error, "Received unexpected response from the ServiceNow endpoint: #{change_req_url_res.code} #{change_req_url_res.body}" unless change_req_url_res.is_a?(Net::HTTPSuccess)
+
+    if attach_ia_csv
+      attachment_url = "#{endpoint}/api/now/attachment/file?table_name=change_request&table_sys_id=#{changereq['result']['sys_id']['value']}&file_name=impact_analysis_result.csv"
+      attachment_res = make_attachment_request(attachment_url, :post, proxy, username, password, ia_content, 'text/csv')
+      raise Puppet::Error, "Received unexpected response from the ServiceNow endpoint: #{attachment_res.code} #{attachment_res.body}" unless attachment_res.is_a?(Net::HTTPSuccess)
+    end
   end
 
   def make_request(endpoint, type, proxy, username, password, payload = nil)
@@ -200,6 +209,71 @@ Puppet::Functions.create_function(:'deployments::servicenow_change_request') do
         end
         request.basic_auth(username, password)
         request['Content-Type'] = 'application/json'
+        request['Accept'] = 'application/json'
+        if proxy['enabled'] == true
+          proxy_conn = Net::HTTP::Proxy(
+            proxy['host'],
+            proxy['port']
+          )
+          response = proxy_conn.start(uri.host, uri.port, :use_ssl => (uri.scheme == 'https')) do |http|
+            http.read_timeout = 60
+            http.request(request)
+          end
+        else
+          connection = Net::HTTP.new(uri.host, uri.port)
+          connection.use_ssl = true if uri.scheme == 'https'
+          connection.read_timeout = 60
+          response = connection.request(request)
+        end
+      rescue SocketError => e
+        raise Puppet::Error, "Could not connect to the ServiceNow endpoint at #{uri.host}: #{e.inspect}", e.backtrace
+      end
+
+      case response
+      when Net::HTTPInternalServerError
+        if attempts < max_attempts # rubocop:disable Style/GuardClause
+          Puppet.debug("Received #{response} error from #{uri.host}, attempting to retry. (Attempt #{attempts} of #{max_attempts})")
+          Kernel.sleep(3)
+        else
+          raise Puppet::Error, "Received #{attempts} server error responses from the ServiceNow endpoint at #{uri.host}: #{response.code} #{response.body}"
+        end
+      else # Covers Net::HTTPSuccess, Net::HTTPRedirection
+        return response
+      end
+    end
+  end
+
+  def make_attachment_request(endpoint, type, proxy, username, password, payload = nil, content_type = 'application/json')
+    uri = URI.parse(endpoint)
+    max_attempts = 3
+    attempts = 0
+    while attempts < max_attempts
+      attempts += 1
+      body = nil
+      if content_type == 'application/json'
+        body = payload.to_json unless payload.nil?
+      else
+        body = payload unless payload.nil?
+      end
+
+      begin
+        Puppet.debug("servicenow_change_request: performing #{type} request to #{endpoint}")
+        case type
+        when :delete
+          request = Net::HTTP::Delete.new(uri.request_uri)
+        when :get
+          request = Net::HTTP::Get.new(uri.request_uri)
+        when :post
+          request = Net::HTTP::Post.new(uri.request_uri)
+          request.body = body unless body.nil?
+        when :patch
+          request = Net::HTTP::Patch.new(uri.request_uri)
+          request.body = body unless body.nil?
+        else
+          raise Puppet::Error, "servicenow_change_request#make_attachment_request called with invalid request type #{type}"
+        end
+        request.basic_auth(username, password)
+        request['Content-Type'] = content_type
         request['Accept'] = 'application/json'
         if proxy['enabled'] == true
           proxy_conn = Net::HTTP::Proxy(
