@@ -33,7 +33,7 @@ Puppet::Functions.create_function(:'deployments::get_ia_csv') do
     # if csv is empty or nil add some text as empty attachments are not possible in ServiceNOW
     # and a missing attachment could be an error as well.
     if csv.nil? || csv == ''
-      csv = 'Impact analysis didn\'t affect any nodes!'
+      csv = 'Impact analysis didn\'t detect and resource changes!'
     end
     csv
   end
