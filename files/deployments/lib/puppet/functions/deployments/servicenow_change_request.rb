@@ -5,18 +5,18 @@ require 'json'
 
 Puppet::Functions.create_function(:'deployments::servicenow_change_request') do
   dispatch :servicenow_change_request do
-    required_param 'String',            :endpoint
-    required_param 'Hash',              :proxy
-    required_param 'String',            :username
-    required_param 'Sensitive[String]', :password
-    required_param 'Sensitive[String]', :oauth_token
-    required_param 'Hash',              :report
-    required_param 'String',            :ia_url
-    required_param 'String',            :promote_to_stage_name
-    required_param 'Integer',           :promote_to_stage_id
-    required_param 'String',            :assignment_group
-    required_param 'String',            :connection_alias
-    required_param 'Boolean',           :auto_create_ci
+    required_param 'String',    :endpoint
+    required_param 'Hash',      :proxy
+    required_param 'String',    :username
+    required_param 'Sensitive', :password
+    required_param 'Sensitive', :oauth_token
+    required_param 'Hash',      :report
+    required_param 'String',    :ia_url
+    required_param 'String',    :promote_to_stage_name
+    required_param 'Integer',   :promote_to_stage_id
+    required_param 'String',    :assignment_group
+    required_param 'String',    :connection_alias
+    required_param 'Boolean',   :auto_create_ci
   end
 
   def servicenow_change_request(endpoint, proxy, username, password, oauth_token, report, ia_url, promote_to_stage_name, promote_to_stage_id, assignment_group, connection_alias, auto_create_ci)
@@ -153,7 +153,7 @@ Puppet::Functions.create_function(:'deployments::servicenow_change_request') do
 
     # Get sys_id of given assignment_group
     assignment_group_url = "#{endpoint}/api/now/table/sys_user_group?sysparm_query=name=#{assignment_group}"
-    assignment_group_response = make_request(assignment_group_url, :get, proxy, username, oauth_token, password)
+    assignment_group_response = make_request(assignment_group_url, :get, proxy, username, password, oauth_token)
     raise Puppet::Error, "Received unexpected response from the ServiceNow endpoint: #{assignment_group_response.code} #{assignment_group_response.body}" unless assignment_group_response.is_a?(Net::HTTPOK) # rubocop:disable Metrics/LineLength
 
     arr_assignment_groups = JSON.parse(assignment_group_response.body)['result']
@@ -200,9 +200,9 @@ Puppet::Functions.create_function(:'deployments::servicenow_change_request') do
           raise Puppet::Error, "servicenow_change_request#make_request called with invalid request type #{type}"
         end
         if oauth_token.unwrap.to_s.strip.empty?
-          request.basic_auth(username, password.unwrap) # password.unwrap when Sensitive
+          request.basic_auth(username, password.unwrap.delete_prefix('"').delete_suffix('"'))
         else
-          request['Authorization'] = "Bearer #{oauth_token.unwrap}"
+          request['Authorization'] = "Bearer #{oauth_token.unwrap.delete_prefix('"').delete_suffix('"')}"
         end
         request['Content-Type'] = 'application/json'
         request['Accept'] = 'application/json'
