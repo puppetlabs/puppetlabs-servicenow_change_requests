@@ -41,7 +41,7 @@ Puppet::Functions.create_function(:'deployments::servicenow_change_request') do
     short_description = CGI.escape("Puppet Code - '#{report['scm']['description']}' to stage '#{promote_to_stage_name}'").gsub(%r{\+}, '%20')
     request_uri = "#{endpoint}/api/sn_chg_rest/v1/change/normal?category=Puppet%20Code&short_description=#{short_description}&description=#{description}"
     request_response = make_request(request_uri, :post, proxy, username, password, oauth_token)
-    raise Puppet::Error, "Received unexpected response from the ServiceNow endpoint: #{request_response.code} #{request_response.body}" unless request_response.is_a?(Net::HTTPSuccess)
+    raise Puppet::Error, "1-Received unexpected response from the ServiceNow endpoint: #{request_response.code} #{request_response.body}" unless request_response.is_a?(Net::HTTPSuccess)
 
     changereq = JSON.parse(request_response.body)
 
@@ -51,7 +51,7 @@ Puppet::Functions.create_function(:'deployments::servicenow_change_request') do
       ia['IA_node_reports'].each_key do |node|
         ci_req_uri = "#{endpoint}/api/now/table/cmdb_ci?sysparm_query=name=#{node}"
         ci_req_response = make_request(ci_req_uri, :get, proxy, username, password, oauth_token)
-        raise Puppet::Error, "Received unexpected response from the ServiceNow endpoint: #{ci_req_response.code} #{ci_req_response.body}" unless ci_req_response.is_a?(Net::HTTPOK)
+        raise Puppet::Error, "2-Received unexpected response from the ServiceNow endpoint: #{ci_req_response.code} #{ci_req_response.body}" unless ci_req_response.is_a?(Net::HTTPOK)
 
         ci = JSON.parse(ci_req_response.body)
         if ci['result'].count.positive?
@@ -89,7 +89,7 @@ Puppet::Functions.create_function(:'deployments::servicenow_change_request') do
           # Make the API call
           new_ci_uri = "#{endpoint}/api/now/table/cmdb_ci_server"
           new_ci_response = make_request(new_ci_uri, :post, proxy, username, password, oauth_token, fact_payload)
-          raise Puppet::Error, "Received unexpected response from the ServiceNow endpoint: #{new_ci_response.code} #{new_ci_response.body}" unless new_ci_response.is_a?(Net::HTTPSuccess)
+          raise Puppet::Error, "3-Received unexpected response from the ServiceNow endpoint: #{new_ci_response.code} #{new_ci_response.body}" unless new_ci_response.is_a?(Net::HTTPSuccess)
 
           # Grab the response to push the sys_id to the array_of_cis
           new_ci = JSON.parse(new_ci_response.body)
@@ -122,11 +122,11 @@ Puppet::Functions.create_function(:'deployments::servicenow_change_request') do
           task_ci_uri = "#{endpoint}/api/now/table/task_ci"
           task_ci_payload = { 'ci_item' => ci, 'task' => changereq['result']['sys_id']['value'] }
           task_ci_response = make_request(task_ci_uri, :post, proxy, username, password, oauth_token, task_ci_payload)
-          raise Puppet::Error, "Received unexpected response from the ServiceNow endpoint: #{task_ci_response.code} #{task_ci_response.body}" unless task_ci_response.is_a?(Net::HTTPSuccess)
+          raise Puppet::Error, "4-Received unexpected response from the ServiceNow endpoint: #{task_ci_response.code} #{task_ci_response.body}" unless task_ci_response.is_a?(Net::HTTPSuccess)
         end
       else
         # A real error occurred, raise the error
-        raise Puppet::Error, "Received unexpected response from the ServiceNow endpoint: #{assoc_ci_response.code} #{assoc_ci_response.body}"
+        raise Puppet::Error, "5-Received unexpected response from the ServiceNow endpoint: #{assoc_ci_response.code} #{assoc_ci_response.body}"
       end
     end
 
@@ -154,7 +154,7 @@ Puppet::Functions.create_function(:'deployments::servicenow_change_request') do
     # Get sys_id of given assignment_group
     assignment_group_url = "#{endpoint}/api/now/table/sys_user_group?sysparm_query=name=#{assignment_group}"
     assignment_group_response = make_request(assignment_group_url, :get, proxy, username, password, oauth_token)
-    raise Puppet::Error, "Received unexpected response from the ServiceNow endpoint: #{assignment_group_response.code} #{assignment_group_response.body}" unless assignment_group_response.is_a?(Net::HTTPOK) # rubocop:disable Metrics/LineLength
+    raise Puppet::Error, "6-Received unexpected response from the ServiceNow endpoint: #{assignment_group_response.code} #{assignment_group_response.body}" unless assignment_group_response.is_a?(Net::HTTPOK) # rubocop:disable Metrics/LineLength
 
     arr_assignment_groups = JSON.parse(assignment_group_response.body)['result']
     raise Puppet::Error, "No Assignment Group named '#{assignment_group}' was found in ServiceNow!" unless arr_assignment_groups.count.positive?
@@ -174,7 +174,7 @@ Puppet::Functions.create_function(:'deployments::servicenow_change_request') do
     end
 
     change_req_url_res = make_request(change_req_url, :patch, proxy, username, password, oauth_token, payload)
-    raise Puppet::Error, "Received unexpected response from the ServiceNow endpoint: #{change_req_url_res.code} #{change_req_url_res.body}" unless change_req_url_res.is_a?(Net::HTTPSuccess)
+    raise Puppet::Error, "7-Received unexpected response from the ServiceNow endpoint: #{change_req_url_res.code} #{change_req_url_res.body}" unless change_req_url_res.is_a?(Net::HTTPSuccess)
   end
 
   def make_request(endpoint, type, proxy, username, password, oauth_token, payload = nil)
@@ -200,9 +200,9 @@ Puppet::Functions.create_function(:'deployments::servicenow_change_request') do
           raise Puppet::Error, "servicenow_change_request#make_request called with invalid request type #{type}"
         end
         if oauth_token.unwrap.to_s.strip.empty?
-          request.basic_auth(username, password.unwrap.delete_prefix('"').delete_suffix('"'))
+          request.basic_auth(username, password.unwrap.to_s.delete_prefix('"').delete_suffix('"'))
         else
-          request['Authorization'] = "Bearer #{oauth_token.unwrap.delete_prefix('"').delete_suffix('"')}"
+          request['Authorization'] = "Bearer #{oauth_token.unwrap.to_s.delete_prefix('"').delete_suffix('"')}"
         end
         request['Content-Type'] = 'application/json'
         request['Accept'] = 'application/json'
