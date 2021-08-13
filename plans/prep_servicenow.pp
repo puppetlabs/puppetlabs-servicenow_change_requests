@@ -8,8 +8,10 @@
 #   FQDN of your ServiceNow instance. Only specify the FQDN, do not specify https://
 # @param [String] admin_user
 #   Username of the account in ServiceNow that has permissions to create objects
-# @param [String] admin_password
+# @param [Sensitive[String]] admin_password
 #   Password of the account in ServiceNow that has permissions to create objects
+# @param [Sensitive[String]] oauth_token
+#   OAuth token to access ServiceNow, instead of using username & password
 # @param [String] cd4pe_endpoint
 #   FQDN of your CD4PE instance. Only specify the FQDN, do not specify https://
 # @param [Optional[Boolean]] cd4pe_https
