@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## Release 0.3.0
+
+**Features**
+- Adds support for OAuth authentication against ServiceNow
+- Uses the Sensitive datatype for password & OAuth token inputs, which will mask the input in PE and CD4PE
+- Removes official support for CD4PE 3.x
+
 ## Release 0.2.3
 
 **Features**

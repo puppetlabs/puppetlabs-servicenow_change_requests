@@ -24,10 +24,9 @@ Finally, this README provides the instructions for getting the integration up & 
 ### System Requirements & Compatibility
 
 These are the requirements for the latest version of the module, see the [Compatibility matrix](https://github.com/puppetlabs/puppetlabs-servicenow_change_requests/blob/master/COMPATIBILITY.md) for more specific details.
-* Puppet Enterprise 2019.8.3 or higher
-* CD4PE 3.13.4 or higher
-* ServiceNow Orlando or higher
-
+* Puppet Enterprise 2019.8.5 or higher
+* CD4PE 4.8.0 or higher
+* ServiceNow Paris or higher
 
 ### Preparing ServiceNow
 
@@ -39,17 +38,25 @@ To ensure we can automate change requests, some things need to be added to Servi
 
 A single plan takes care of setting this up. To run the plan, go to the `Plans` section in the left navigation bar in Puppet Enterprise. In the "Run a plan" screen, select the `servicenow_change_requests::prep_servicenow` from the Plan dropdown list. If the plan is not listed, ensure that this module has been added to the Puppetfile of your control repo, and that you have performed a code deployment to your production environment.
 
-The plan requires 4 parameters, and has 3 more optional parameters for specific use cases. The 4 required parameters are:
-* `snow_endpoint`: The reachable FQDN of the ServiceNow instance (just the name is sufficient)
-* `admin_user`: The username of an administrator in ServiceNow, to make the necessary changes
-* `admin_password`: The password of the specified admin_user
+The plan requires 2 parameters + authentication info, and has 3 more optional parameters for specific use cases. The 2 required parameters are:
+* `snow_endpoint`:  The reachable FQDN of the ServiceNow instance (just the name is sufficient)
 * `cd4pe_endpoint`: The publicly reachable FQDN of the CD4PE server (just the name, not the full URL)
 
-For example, to configure the ServiceNow instance `https://dev-365937.service-now.com` to integrate with a CD4PE server at `https://puppet-cd4pe.mycompany.com`, specify the parameters as follows:
-* `snow_endpoint = dev-365937.service-now.com`
-* `admin_user = admin`
-* `admin_password = <password>`
+For authentication info, either a username + password must be set, or a valid OAuth token can be used:
+* `admin_user`:     The username of an administrator in ServiceNow, to make the necessary changes
+* `admin_password`: The password of the specified admin_user
+* `oauth_token`:    An OAuth token for accessing ServiceNow, instead of using username + password
+
+For example, to configure the ServiceNow instance `https://dev365937.service-now.com` to integrate with a CD4PE server at `https://puppet-cd4pe.mycompany.com`, specify the parameters as follows:
+* `snow_endpoint  = dev365937.service-now.com`
 * `cd4pe_endpoint = puppet-cd4pe.mycompany.com`
+* `admin_user     = admin`
+* `admin_password = <password>`
+
+or, with an OAuth token:
+* `snow_endpoint  = dev365937.service-now.com`
+* `cd4pe_endpoint = puppet-cd4pe.mycompany.com`
+* `oauth_token    = <token>`
 
 #### Optional plan parameters
 
@@ -58,13 +65,13 @@ If you are running a CD4PE version lower than 4.5.0, you will need to set the `b
 
 Omit this parameter when you are running CD4PE 4.5.0 or above, which will install version 0.2.3 of the Business Rule, which is compatible with CD4PE 4.5.0.
 
-The optional parameters `cd4pe_https` and `cd4pe_port` can be used to connect to a CD4PE server on a different port, or via http. For example, to configure the ServiceNow instance `https://dev-365937.service-now.com` to integrate with a CD4PE server at `http://puppet-cd4pe.mycompany.com:8080`, specify the parameters as follows:
-* `snow_endpoint = dev-365937.service-now.com`
-* `admin_user = admin`
+The optional parameters `cd4pe_https` and `cd4pe_port` can be used to connect to a CD4PE server on a different port, or via http. For example, to configure the ServiceNow instance `https://dev365937.service-now.com` to integrate with a CD4PE server at `http://puppet-cd4pe.mycompany.com:8080`, specify the parameters as follows:
+* `snow_endpoint  = dev365937.service-now.com`
+* `admin_user     = admin`
 * `admin_password = <password>`
 * `cd4pe_endpoint = puppet-cd4pe.mycompany.com`
-* `cd4pe_https = false`
-* `cd4pe_port = 8080`
+* `cd4pe_https    = false`
+* `cd4pe_port     = 8080`
 
 The optional parameter `connection_suffix` can be used to integrate multiple CD4PE installations with a single ServiceNow instance. By default, the plan will create a `Puppet_Code` Connection Alias in ServiceNow, linked to a `Puppet Code Connection` and a `Puppet Code Credential`. This is great for when you have a single CD4PE installation. If you have 1 CD4PE installation, you don't need to specify the `connection_suffix` parameter.
 
@@ -119,6 +126,7 @@ Once the custom deployment policy is available, add it to your `master` pipeline
    * `snow_endpoint`: the FQDN of your ServiceNow instance (e.g. `dev-365937.service-now.com`)
    * `snow_username`: the username to authenticate with ServiceNow (e.g. `admin`)
    * `snow_password`: the password to authenticate with ServiceNow (e.g. `P@ssw0rd!`)
+   * `snow_oauth_token`: an OAuth token for ServiceNow, instead of using username + password (if you set an OAuth token, it will be used instead of username + password)
    * `stage_to_promote_to`: the name of the stage to promote to, when approved (e.g. `Deploy to Production`)
 7. If desired, set (some of the) optional parameters for the policy:
    * `max_changes_per_node`: how many resources per node may change before CD4PE recommends this code change warrants more scrutiny (defaults to `10`)
