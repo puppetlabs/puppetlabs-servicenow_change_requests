@@ -200,9 +200,9 @@ Puppet::Functions.create_function(:'deployments::servicenow_change_request') do
           raise Puppet::Error, "servicenow_change_request#make_request called with invalid request type #{type}"
         end
         if oauth_token.unwrap.to_s.strip.empty?
-          request.basic_auth(username, password.unwrap.to_s.delete_prefix('"').delete_suffix('"'))
+          request.basic_auth(username, password.unwrap.delete_prefix('"').delete_suffix('"'))
         else
-          request['Authorization'] = "Bearer #{oauth_token.unwrap.to_s.delete_prefix('"').delete_suffix('"')}"
+          request['Authorization'] = "Bearer #{oauth_token.unwrap.delete_prefix('"').delete_suffix('"')}"
         end
         request['Content-Type'] = 'application/json'
         request['Accept'] = 'application/json'
