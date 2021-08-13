@@ -38,7 +38,7 @@ Puppet::Functions.create_function(:'servicenow_change_requests::make_request') d
         if oauth_token.unwrap.to_s.strip.empty?
           request.basic_auth(username, password.unwrap) # password.unwrap when Sensitive
         else
-          request['Authorization'] = "Bearer #{oauth_token}"
+          request['Authorization'] = "Bearer #{oauth_token.unwrap}"
         end
         request['Content-Type'] = 'application/json'
         request['Accept'] = 'application/json'

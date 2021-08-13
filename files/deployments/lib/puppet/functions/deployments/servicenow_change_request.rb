@@ -5,18 +5,18 @@ require 'json'
 
 Puppet::Functions.create_function(:'deployments::servicenow_change_request') do
   dispatch :servicenow_change_request do
-    required_param 'String',    :endpoint
-    required_param 'Hash',      :proxy
-    required_param 'String',    :username
-    required_param 'Sensitive', :password
-    required_param 'Sensitive', :oauth_token
-    required_param 'Hash',      :report
-    required_param 'String',    :ia_url
-    required_param 'String',    :promote_to_stage_name
-    required_param 'Integer',   :promote_to_stage_id
-    required_param 'String',    :assignment_group
-    required_param 'String',    :connection_alias
-    required_param 'Boolean',   :auto_create_ci
+    required_param 'String',            :endpoint
+    required_param 'Hash',              :proxy
+    required_param 'String',            :username
+    required_param 'Sensitive[String]', :password
+    required_param 'Sensitive[String]', :oauth_token
+    required_param 'Hash',              :report
+    required_param 'String',            :ia_url
+    required_param 'String',            :promote_to_stage_name
+    required_param 'Integer',           :promote_to_stage_id
+    required_param 'String',            :assignment_group
+    required_param 'String',            :connection_alias
+    required_param 'Boolean',           :auto_create_ci
   end
 
   def servicenow_change_request(endpoint, proxy, username, password, oauth_token, report, ia_url, promote_to_stage_name, promote_to_stage_id, assignment_group, connection_alias, auto_create_ci)
@@ -202,7 +202,7 @@ Puppet::Functions.create_function(:'deployments::servicenow_change_request') do
         if oauth_token.unwrap.to_s.strip.empty?
           request.basic_auth(username, password.unwrap) # password.unwrap when Sensitive
         else
-          request['Authorization'] = "Bearer #{oauth_token}"
+          request['Authorization'] = "Bearer #{oauth_token.unwrap}"
         end
         request['Content-Type'] = 'application/json'
         request['Accept'] = 'application/json'
