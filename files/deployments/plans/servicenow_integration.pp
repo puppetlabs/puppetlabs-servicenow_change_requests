@@ -1,8 +1,8 @@
 plan deployments::servicenow_integration(
-  String $snow_endpoint,
-  String $snow_username = '',
-  Sensitive $snow_password = Sensitive(''),
-  Sensitive $snow_oauth_token = Sensitive(''),
+  String $now_endpoint,
+  String $now_username = '',
+  Sensitive $now_password = Sensitive(''),
+  Sensitive $now_oauth_token = Sensitive(''),
   String $stage_to_promote_to = undef,
   Optional[Integer] $max_changes_per_node = 10,
   Optional[String] $report_stage = 'Impact Analysis',
@@ -23,13 +23,13 @@ plan deployments::servicenow_integration(
     'MODULE' => $module_name
   }
 
-  # Parse $snow_endpoint
-  if $snow_endpoint == undef {
+  # Parse $now_endpoint
+  if $now_endpoint == undef {
     fail_plan('No ServiceNow endpoint specified!', 'no_endpoint_error')
   } else {
-    $_snow_endpoint = $snow_endpoint[0,8] ? {
-      'https://' => $snow_endpoint,
-      default    => "https://${snow_endpoint}"
+    $_now_endpoint = $now_endpoint[0,8] ? {
+      'https://' => $now_endpoint,
+      default    => "https://${now_endpoint}"
     }
   }
 
@@ -124,11 +124,11 @@ plan deployments::servicenow_integration(
   $promote_stage_number = $promote_stage[0]['stageNum']
   # Trigger Change Request workflow in ServiceNow DevOps
   deployments::servicenow_change_request(
-    $_snow_endpoint,
+    $_now_endpoint,
     $proxy,
-    $snow_username,
-    $snow_password,
-    $snow_oauth_token,
+    $now_username,
+    $now_password,
+    $now_oauth_token,
     $report,
     $ia_url,
     $stage_to_promote_to,
