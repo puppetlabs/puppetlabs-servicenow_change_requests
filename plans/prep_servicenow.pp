@@ -41,7 +41,7 @@ plan servicenow_change_requests::prep_servicenow(
   # Parse flexible parameters
   $_now_endpoint = $now_endpoint[0,8] ? {
     'https://' => $now_endpoint,
-    default    => "https://${_endpoint}"
+    default    => "https://${now_endpoint}"
   }
 
   unless cd4pe_port {
