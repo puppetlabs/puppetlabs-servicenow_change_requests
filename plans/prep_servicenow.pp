@@ -2,14 +2,16 @@
 #   Prepares ServiceNow for the Change Request integration by ensuring all necessary objects exist (Change Category, Business Rule, Connection & Credential objects)
 # 
 # @example
-#   bolt plan run servicenow_change_requests::prep_servicenow snow_endpoint=customer.service-now.com admin_user=admin admin_password=password cd4pe_endpoint=cd4pe.company.local
+#   bolt plan run servicenow_change_requests::prep_servicenow now_endpoint=customer.service-now.com admin_user=admin admin_password=password cd4pe_endpoint=cd4pe.company.local
 # 
-# @param [String] snow_endpoint
+# @param [String] now_endpoint
 #   FQDN of your ServiceNow instance. Only specify the FQDN, do not specify https://
 # @param [String] admin_user
 #   Username of the account in ServiceNow that has permissions to create objects
-# @param [String] admin_password
+# @param [Sensitive[String]] admin_password
 #   Password of the account in ServiceNow that has permissions to create objects
+# @param [Sensitive[String]] oauth_token
+#   OAuth token to access ServiceNow, instead of using username & password
 # @param [String] cd4pe_endpoint
 #   FQDN of your CD4PE instance. Only specify the FQDN, do not specify https://
 # @param [Optional[Boolean]] cd4pe_https
@@ -24,9 +26,10 @@
 #   If you need to connect via a proxy server, specify its port here
 # 
 plan servicenow_change_requests::prep_servicenow(
-  String $snow_endpoint,
-  String $admin_user,
-  String $admin_password,
+  String $now_endpoint,
+  String $admin_user = '',
+  Sensitive[String] $admin_password = Sensitive(''),
+  Sensitive[String] $oauth_token = Sensitive(''),
   String $cd4pe_endpoint,
   Optional[Boolean] $cd4pe_https = true,
   Optional[Integer] $cd4pe_port = undef,
@@ -36,9 +39,9 @@ plan servicenow_change_requests::prep_servicenow(
   Optional[String] $br_version = '0.2.3'
 ){
   # Parse flexible parameters
-  $_snow_endpoint = $snow_endpoint[0,8] ? {
-    'https://' => $snow_endpoint,
-    default    => "https://${snow_endpoint}"
+  $_now_endpoint = $now_endpoint[0,8] ? {
+    'https://' => $now_endpoint,
+    default    => "https://${now_endpoint}"
   }
 
   unless cd4pe_port {
@@ -58,18 +61,18 @@ plan servicenow_change_requests::prep_servicenow(
   }
 
   # Connect to ServiceNow and validate credentials
-  $cred_uri = "${_snow_endpoint}/api/now/table/sys_user_group?sysparm_limit=1"
-  $cred_result = servicenow_change_requests::make_request($cred_uri, 'get', $proxy, $admin_user, $admin_password)
+  $cred_uri = "${_now_endpoint}/api/now/table/sys_user_group?sysparm_limit=1"
+  $cred_result = servicenow_change_requests::make_request($cred_uri, 'get', $proxy, $admin_user, $admin_password, $oauth_token)
   unless $cred_result['code'] == 200 {
     fail("Unable to authenticate to ServiceNow! Got error ${cred_result['code']} with message ${cred_result['body']}")
   }
   else {
-    out::message("Successfully authenticated to ServiceNow endpoint ${_snow_endpoint}")
+    out::message("Successfully authenticated to ServiceNow endpoint ${_now_endpoint}")
   }
 
   # Check if 'Puppet Code' is listed as a change category
-  $category_check_uri = "${_snow_endpoint}/api/now/table/sys_choice?sysparm_query=name=change_request&element=category&language=en"
-  $category_check_result = servicenow_change_requests::make_request($category_check_uri, 'get', $proxy, $admin_user, $admin_password)
+  $category_check_uri = "${_now_endpoint}/api/now/table/sys_choice?sysparm_query=name=change_request&element=category&language=en"
+  $category_check_result = servicenow_change_requests::make_request($category_check_uri, 'get', $proxy, $admin_user, $admin_password, $oauth_token)
   unless $category_check_result['code'] == 200 {
     fail("Unable to request change categories! Got error ${category_check_result['code']} with message ${category_check_result['body']}")
   }
@@ -96,8 +99,8 @@ plan servicenow_change_requests::prep_servicenow(
       'value'    => 'Puppet Code',
       'element'  => 'category'
     }
-    $new_category_uri = "${_snow_endpoint}/api/now/table/sys_choice"
-    $new_category_result = servicenow_change_requests::make_request($new_category_uri, 'post', $proxy, $admin_user, $admin_password, $new_category)
+    $new_category_uri = "${_now_endpoint}/api/now/table/sys_choice"
+    $new_category_result = servicenow_change_requests::make_request($new_category_uri, 'post', $proxy, $admin_user, $admin_password, $oauth_token, $new_category)
     unless $new_category_result['code'] == 201 {
       fail("Unable to add Change request category 'Puppet Code'! Got error ${new_category_result['code']} with message ${new_category_result['body']}") # lint:ignore:140chars
     }
@@ -108,8 +111,8 @@ plan servicenow_change_requests::prep_servicenow(
   }
 
   # Check if 'Puppet - Promote code after approval' is listed as a business rule
-  $rule_check_uri = "${_snow_endpoint}/api/now/table/sys_script?sysparm_query=name=Puppet%20-%20Promote%20code%20after%20approval"
-  $rule_check_result = servicenow_change_requests::make_request($rule_check_uri, 'get', $proxy, $admin_user, $admin_password)
+  $rule_check_uri = "${_now_endpoint}/api/now/table/sys_script?sysparm_query=name=Puppet%20-%20Promote%20code%20after%20approval"
+  $rule_check_result = servicenow_change_requests::make_request($rule_check_uri, 'get', $proxy, $admin_user, $admin_password, $oauth_token)
   unless $rule_check_result['code'] == 200 {
     fail("Unable to request business rules! Got error ${rule_check_result['code']} with message ${rule_check_result['body']}")
   }
@@ -150,8 +153,8 @@ plan servicenow_change_requests::prep_servicenow(
       'name'              => 'Puppet - Promote code after approval',
       'role_conditions'   => '',
     }
-    $new_rule_uri = "${_snow_endpoint}/api/now/table/sys_script"
-    $new_rule_result = servicenow_change_requests::make_request($new_rule_uri, 'post', $proxy, $admin_user, $admin_password, $new_rule)
+    $new_rule_uri = "${_now_endpoint}/api/now/table/sys_script"
+    $new_rule_result = servicenow_change_requests::make_request($new_rule_uri, 'post', $proxy, $admin_user, $admin_password, $oauth_token, $new_rule)
     unless $new_rule_result['code'] == 201 {
       fail("Unable to add business rule 'Puppet - Promote code after approval'! Got error ${new_rule_result['code']} with message ${new_rule_result['body']}") # lint:ignore:140chars
     }
@@ -172,8 +175,8 @@ plan servicenow_change_requests::prep_servicenow(
       out::message("Business rule 'Puppet - Promote code after approval' is outdated and will be updated...")
       $rule_script = epp("servicenow_change_requests/${br_version}/business_rule_script.js")
       $updated_rule = { 'script' => $rule_script }
-      $rule_uri = "${_snow_endpoint}/api/now/table/sys_script/${rule_check_result['body'][0]['sys_id']}"
-      $rule_result = servicenow_change_requests::make_request($rule_uri, 'patch', $proxy, $admin_user, $admin_password, $updated_rule)
+      $rule_uri = "${_now_endpoint}/api/now/table/sys_script/${rule_check_result['body'][0]['sys_id']}"
+      $rule_result = servicenow_change_requests::make_request($rule_uri, 'patch', $proxy, $admin_user, $admin_password, $oauth_token, $updated_rule)
       unless $rule_result['code'] == 200 {
         fail("Unable to update business rule 'Puppet - Promote code after approval'! Got error ${rule_result['code']} with message ${rule_result['body']}") # lint:ignore:140chars
       }
@@ -195,8 +198,8 @@ plan servicenow_change_requests::prep_servicenow(
   }
 
   # Check if connection alias is already present
-  $alias_check_uri = "${_snow_endpoint}/api/now/table/sys_alias?sysparm_query=name=${alias_name}"
-  $alias_check_result = servicenow_change_requests::make_request($alias_check_uri, 'get', $proxy, $admin_user, $admin_password)
+  $alias_check_uri = "${_now_endpoint}/api/now/table/sys_alias?sysparm_query=name=${alias_name}"
+  $alias_check_result = servicenow_change_requests::make_request($alias_check_uri, 'get', $proxy, $admin_user, $admin_password, $oauth_token)
   unless $alias_check_result['code'] == 200 {
     fail("Unable to request connection aliases! Got error ${alias_check_result['code']} with message ${alias_check_result['body']}")
   }
@@ -211,8 +214,8 @@ plan servicenow_change_requests::prep_servicenow(
       'multiple_connections'   => 'false',
       'name'                   => $alias_name,
     }
-    $new_alias_uri = "${_snow_endpoint}/api/now/table/sys_alias"
-    $new_alias_result = servicenow_change_requests::make_request($new_alias_uri, 'post', $proxy, $admin_user, $admin_password, $new_alias)
+    $new_alias_uri = "${_now_endpoint}/api/now/table/sys_alias"
+    $new_alias_result = servicenow_change_requests::make_request($new_alias_uri, 'post', $proxy, $admin_user, $admin_password, $oauth_token, $new_alias)
     unless $new_alias_result['code'] == 201 {
       fail("Unable to add connection alias '${alias_name}'! Got error ${new_alias_result['code']} with message ${new_alias_result['body']}") # lint:ignore:140chars
     }
@@ -225,8 +228,8 @@ plan servicenow_change_requests::prep_servicenow(
   }
 
   # Check if credential is already present
-  $cred_check_uri = "${_snow_endpoint}/api/now/table/discovery_credentials?sysparm_query=name=${cred_name}"
-  $cred_check_result = servicenow_change_requests::make_request($cred_check_uri, 'get', $proxy, $admin_user, $admin_password)
+  $cred_check_uri = "${_now_endpoint}/api/now/table/discovery_credentials?sysparm_query=name=${cred_name}"
+  $cred_check_result = servicenow_change_requests::make_request($cred_check_uri, 'get', $proxy, $admin_user, $admin_password, $oauth_token)
   unless $cred_check_result['code'] == 200 {
     fail("Unable to request credentials! Got error ${cred_check_result['code']} with message ${cred_check_result['body']}")
   }
@@ -243,8 +246,8 @@ plan servicenow_change_requests::prep_servicenow(
       'name'                    => $cred_name,
       'sys_class_name'          => 'basic_auth_credentials',
     }
-    $new_cred_uri = "${_snow_endpoint}/api/now/table/discovery_credentials"
-    $new_cred_result = servicenow_change_requests::make_request($new_cred_uri, 'post', $proxy, $admin_user, $admin_password, $new_cred)
+    $new_cred_uri = "${_now_endpoint}/api/now/table/discovery_credentials"
+    $new_cred_result = servicenow_change_requests::make_request($new_cred_uri, 'post', $proxy, $admin_user, $admin_password, $oauth_token, $new_cred)
     unless $new_cred_result['code'] == 201 {
       fail("Unable to add credential '${cred_name}'! Got error ${new_cred_result['code']} with message ${new_cred_result['body']}") # lint:ignore:140chars
     }
@@ -256,8 +259,8 @@ plan servicenow_change_requests::prep_servicenow(
   }
 
   # Check if connection is already present
-  $conn_check_uri = "${_snow_endpoint}/api/now/table/sys_connection?sysparm_query=name=${conn_name}"
-  $conn_check_result = servicenow_change_requests::make_request($conn_check_uri, 'get', $proxy, $admin_user, $admin_password)
+  $conn_check_uri = "${_now_endpoint}/api/now/table/sys_connection?sysparm_query=name=${conn_name}"
+  $conn_check_result = servicenow_change_requests::make_request($conn_check_uri, 'get', $proxy, $admin_user, $admin_password, $oauth_token)
   unless $conn_check_result['code'] == 200 {
     fail("Unable to request connections! Got error ${conn_check_result['code']} with message ${conn_check_result['body']}")
   }
@@ -278,8 +281,8 @@ plan servicenow_change_requests::prep_servicenow(
       'name'               => $conn_name,
       'connection_timeout' => '0',
     }
-    $new_conn_uri = "${_snow_endpoint}/api/now/table/sys_connection"
-    $new_conn_result = servicenow_change_requests::make_request($new_conn_uri, 'post', $proxy, $admin_user, $admin_password, $new_conn)
+    $new_conn_uri = "${_now_endpoint}/api/now/table/sys_connection"
+    $new_conn_result = servicenow_change_requests::make_request($new_conn_uri, 'post', $proxy, $admin_user, $admin_password, $oauth_token, $new_conn)
     unless $new_conn_result['code'] == 201 {
       fail("Unable to add connection '${conn_name}'! Got error ${new_conn_result['code']} with message ${new_conn_result['body']}") # lint:ignore:140chars
     }

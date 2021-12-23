@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## Release 0.3.2
+
+**Improvements**
+- Updates the `snow_` moniker in parameter names to `now_`, aligning to ServiceNow shorthand. Note that if you already have the `servicenow_integration` deployment policy in your pipeline, you will need to remove & re-add it to see the parameter names update.
+
+## Release 0.3.1
+
+**Bugfixes**
+- Fixes a bug in the order of parameters which would cause an error while waiting for the CI worker to finish associating the CIs with the Change Request, resulting in a `undefined method '[]' for nil:NilClass` error. To implement this fix, you need to replace the content in `site-modules/deployments` in your control repo with the contents in `files/deployments` of this module.
+
+## Release 0.3.0
+
+**Features**
+- Adds support for OAuth authentication against ServiceNow
+- Uses the Sensitive datatype for password & OAuth token inputs, which will mask the input in PE and CD4PE
+- Adds official support for ServiceNow Rome
+- Removes official support for CD4PE 3.x
+
 ## Release 0.2.3
 
 **Features**

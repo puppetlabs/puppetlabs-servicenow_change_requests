@@ -8,11 +8,12 @@ Puppet::Functions.create_function(:'servicenow_change_requests::make_request') d
     required_param 'String', :type
     required_param 'Hash', :proxy
     required_param 'String', :username
-    required_param 'String', :password # 'Sensitive[String]' when Sensitive
+    required_param 'Sensitive[String]', :password
+    required_param 'Sensitive[String]', :oauth_token
     optional_param 'Hash', :payload
   end
 
-  def make_request(endpoint, type, proxy, username, password, payload = nil)
+  def make_request(endpoint, type, proxy, username, password, oauth_token, payload = nil)
     uri = URI.parse(endpoint)
     max_attempts = 3
     attempts = 0
@@ -34,7 +35,11 @@ Puppet::Functions.create_function(:'servicenow_change_requests::make_request') d
         else
           raise Puppet::Error, "servicenow_change_request#make_request called with invalid request type #{type}"
         end
-        request.basic_auth(username, password) # password.unwrap when Sensitive
+        if oauth_token.unwrap.to_s.strip.empty?
+          request.basic_auth(username, password.unwrap)
+        else
+          request['Authorization'] = "Bearer #{oauth_token.unwrap}"
+        end
         request['Content-Type'] = 'application/json'
         request['Accept'] = 'application/json'
 
@@ -43,7 +48,7 @@ Puppet::Functions.create_function(:'servicenow_change_requests::make_request') d
             proxy['host'],
             proxy['port'],
           )
-          response = proxy_conn.start(uri.host, uri.port, :use_ssl => (uri.scheme == 'https')) do |http|
+          response = proxy_conn.start(uri.host, uri.port, :use_ssl => (uri.scheme == 'https')) do |http| # rubocop:disable Style/HashSyntax
             http.read_timeout = 60
             http.request(request)
           end
