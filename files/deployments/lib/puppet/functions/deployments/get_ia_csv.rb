@@ -17,12 +17,9 @@ Puppet::Functions.create_function(:'deployments::get_ia_csv') do
     cd4pe_domain = arr[2]
     uri = arr[3]
     endpoint = "#{proto}//#{cd4pe_domain}/#{uri}/api/v1/impact-analysis/#{id}/csv?workspaceId=#{domain}" 
-    # TODO: get token or have an API call without token needed
-    token = 'just a workarround'
     headers = {
       'Accept' => 'application/json',
-      'Content-Type' => 'application/json',
-      'authorization' => token,
+      'Content-Type' => 'application/json'
     }
     response_res = cd4pe_api_request(endpoint, :get, headers)
     raise Puppet::Error, "Received unexpected response from the CD4PE endpoint: #{response_res.code} #{response_res.body}" unless response_res.is_a?(Net::HTTPSuccess)
