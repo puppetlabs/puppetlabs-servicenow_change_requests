@@ -11,7 +11,7 @@ plan deployments::servicenow_integration(
   Optional[Boolean] $auto_create_ci = false,
   Optional[String] $proxy_host = undef,
   Optional[Integer] $proxy_port = undef,
-  Optional[Boolean] $attach_ia_to_change = false,
+  Optional[Boolean] $attach_ia_csv = false,
 ){
   # Read relevant CD4PE environment variables
   $repo_type         = system::env('REPO_TYPE')
@@ -37,6 +37,7 @@ plan deployments::servicenow_integration(
   # Parse potential proxy server info
   if $proxy_host and $proxy_port {
     $proxy = { 'enabled' => true, 'host' => $proxy_host, 'port' => $proxy_port }
+    cd4pe_deployments::create_custom_deployment_event('Proxy will be used to communicate with ServiceNow')
   } else {
     $proxy = { 'enabled' => false }
   }
@@ -63,7 +64,7 @@ plan deployments::servicenow_integration(
       unless $stage.length == 1 {
         fail_plan("Provided report_stage '${report_stage}' could not be found in pipeline. \
         If you manually promoted the pipeline, please ensure you promote at a point that \
-        includes the stage to report on!", 'stage_not_found_error')
+        includes the Impact Analysis stage to report on!", 'stage_not_found_error')
       }
       $stage_num = $stage.keys[0]
     }
@@ -83,6 +84,7 @@ plan deployments::servicenow_integration(
   }
 
   # Gather pipeline stage reporting
+  cd4pe_deployments::create_custom_deployment_event('Gathering pipeline report information...')
   $scm_data = deployments::report_scm_data($pipeline)
   $stage_report = deployments::report_pipeline_stage($pipeline, $stage_num, $repo_name)
 
@@ -90,6 +92,7 @@ plan deployments::servicenow_integration(
   $ia_events = $stage_report['build']['events'].filter |$event| { $event['eventType'] == 'IA' }
   if $ia_events.length > 0 {
     # Get the Impact Analysis information
+    cd4pe_deployments::create_custom_deployment_event('Processing the Impact Analysis report...')
     $impact_analysis_id = $ia_events[0]['eventNumber']
     $impact_analysis_result = cd4pe_deployments::get_impact_analysis($impact_analysis_id)
     $impact_analysis = cd4pe_deployments::evaluate_result($impact_analysis_result)
@@ -102,11 +105,22 @@ plan deployments::servicenow_integration(
     $ia_envs_report = $ia_report['results'].map |$ia_env_report| {
       $impacted_nodes_result = cd4pe_deployments::search_impacted_nodes($ia_env_report['IA_resultId'])
       $impacted_nodes = cd4pe_deployments::evaluate_result($impacted_nodes_result)
+      cd4pe_deployments::create_custom_deployment_event("Impact Analysis for environment '${ia_env_report['IA_environment']}' contains ${impacted_nodes['rows'].length} impacted nodes...")
       deployments::report_impacted_nodes($ia_env_report, $impacted_nodes, $max_changes_per_node)
+    }
+
+    # Retrieve the CSV export of the Impact Analysis
+    if $attach_ia_csv {
+      cd4pe_deployments::create_custom_deployment_event('Exporting Impact Analysis results to CSV...')
+      $ia_csv_result = cd4pe_deployments::get_impact_analysis_csv($impact_analysis_id)
+      $ia_csv = cd4pe_deployments::evaluate_result($ia_csv_result)
+    } else {
+      $ia_csv = {'csv'=>''}
     }
   } else {
     $ia_envs_report = Tuple({})
     $ia_url = 'No Impact Analysis performed'
+    $ia_csv = {'csv'=>'Impact analysis didn\'t detect any resource changes'}
   }
 
   # Combine all reports into a single hash
@@ -125,14 +139,25 @@ plan deployments::servicenow_integration(
     Please ensure a valid stage name is specified!", 'stage_not_found_error')
   }
   $promote_stage_number = $promote_stage[0]['stageNum']
-  # Trigger Change Request workflow in ServiceNow DevOps
-
-  if $attach_ia_to_change {
-    $ia_result = $ia_response
-  } else {
-    $ia_result = ''
+  $content = {
+    '_now_endpoint'        => $_now_endpoint,
+    'proxy'                => $proxy,
+    'now_username'         => $now_username,
+    'now_password'         => $now_password,
+    'now_oauth_token'      => $now_oauth_token,
+    'report'               => $report,
+    'ia_url'               => $ia_url,
+    'stage_to_promote_to'  => $stage_to_promote_to,
+    'promote_stage_number' => $promote_stage_number,
+    'assignment_group'     => $assignment_group,
+    'connection_alias'     => $connection_alias,
+    'auto_create_ci'       => $auto_create_ci,
+    'ia_csv'               => $ia_csv['csv']
   }
+  # Debugging: cd4pe_deployments::create_custom_deployment_event(to_json($content))
 
+  # Trigger Change Request workflow in ServiceNow DevOps
+  cd4pe_deployments::create_custom_deployment_event('Creating ServiceNow Change Request...')
   deployments::servicenow_change_request(
     $_now_endpoint,
     $proxy,
@@ -146,7 +171,7 @@ plan deployments::servicenow_integration(
     $assignment_group,
     $connection_alias,
     $auto_create_ci,
-    $attach_ia_to_change,
-    $ia_result,
+    $attach_ia_csv,
+    $ia_csv['csv']
   )
 }
